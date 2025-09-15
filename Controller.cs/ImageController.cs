@@ -1,27 +1,33 @@
 ﻿using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Smart_Roots_Server.Data;
+using Smart_Roots_Server.Infrastructure;
 using Smart_Roots_Server.Infrastructure.Models;
+using Smart_Roots_Server.Infrastructure.Validation;
 
 
 
 namespace Smart_Roots_Server.Controller.cs {
     public static class ImageController {
-
-        public async static Task<IResult> Create(HttpContext httpContext, [FromServices] ILogger logger, [FromServices] IValidator<Image> validator, [FromBody] Image image, [FromServices] SupabaseStorageContext supabaseStorage) {
+        const string META_DATA_PREFIX = "data:image/jpeg;base64,";
+        public async static Task<IResult> Create(HttpContext httpContext, [FromServices] ILogger<ImageResult> logger, [FromServices] IValidator<Image> validator, [FromBody] Image image, [FromServices] SupabaseStorageContext supabaseStorage) {
             if (image == null) {
-                logger.LogError("Invalid image sent to the system");
+               
                 return TypedResults.BadRequest("Invalid image sent");
             }
 
             await validator.ValidateAndThrowAsync(image);
-            logger.LogInformation("Seems to be a valid image sent over");
-            byte[] imageBytes = Convert.FromBase64String(image.Base64);
-            if (imageBytes is null) {
-                logger.LogError("Error decoding image");
-                logger.LogError("Malform image or invalid binary");
-                return TypedResults.BadRequest("Image may have been malformed");
+            if (image.Base64.StartsWith(META_DATA_PREFIX){
+              image.Base64 =   image.Base64.Substring(META_DATA_PREFIX.Length);
+            }
 
+           
+            byte[] imageBytes = default!;
+            try {
+                 imageBytes = Convert.FromBase64String(image.Base64);
+            }catch(Exception ex) {
+             
+                return TypedResults.BadRequest("Image may have been malformed");
             }
             string url = await supabaseStorage.UploadImageToBucket("Esp32Cam", imageBytes, image.MacAddress);
             if (url == null) {

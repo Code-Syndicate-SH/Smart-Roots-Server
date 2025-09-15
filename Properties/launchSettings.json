@@ -17,7 +17,7 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "SUPABASE_URL": "https://jkierghtbgwdknrmwnnn.supabase.co",
-        "SUPABSE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpraWVyZ2h0Ymd3ZGtucm13bm5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc2OTkxODQsImV4cCI6MjA3MzI3NTE4NH0.pRA8oRVjr08iKixtDZIK_SgLy9_76T0BPVELYX6f1qw"
+        "SUPABSE_KEY": "sb_publishable_YxwAEwk6QZprz5QTT50z4A__hAqX3xe"
       },
       "dotnetRunMessages": true,
       "applicationUrl": "https://localhost:7183;http://localhost:5153"
@@ -38,8 +38,8 @@
         "ASPNETCORE_HTTPS_PORTS": "8081",
         "ASPNETCORE_HTTP_PORTS": "8080",
         "SUPABASE_URL": "https://jkierghtbgwdknrmwnnn.supabase.co",
-        "SUPABSE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpraWVyZ2h0Ymd3ZGtucm13bm5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc2OTkxODQsImV4cCI6MjA3MzI3NTE4NH0.pRA8oRVjr08iKixtDZIK_SgLy9_76T0BPVELYX6f1qw"
-      
+        "SUPABSE_KEY": "sb_publishable_YxwAEwk6QZprz5QTT50z4A__hAqX3xe"
+
       },
       "publishAllPorts": true,
       "useSSL": true
