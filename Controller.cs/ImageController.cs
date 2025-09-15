@@ -17,7 +17,7 @@ namespace Smart_Roots_Server.Controller.cs {
             }
 
             await validator.ValidateAndThrowAsync(image);
-            if (image.Base64.StartsWith(META_DATA_PREFIX){
+            if (image.Base64.StartsWith(META_DATA_PREFIX)){
               image.Base64 =   image.Base64.Substring(META_DATA_PREFIX.Length);
             }
 

@@ -10,8 +10,10 @@ namespace Smart_Roots_Server {
     using Smart_Roots_Server.Services;
     using System.Net.Sockets;
     using System.Security.Cryptography.X509Certificates;
+    using System.Text.Json;
     using System.Threading.Tasks;
-
+    using MongoDB.Driver;
+    using MongoDB.Bson;
     public class Program {
         public static async Task Main(string[] args) {
             //string certPath = "Certificate.cer";
@@ -63,7 +65,23 @@ namespace Smart_Roots_Server {
                 tcpOptions.AddressFamily = AddressFamily.InterNetwork;
             }
             builder.Services.AddSingleton<IMqttClient>(new MqttClientFactory().CreateMqttClient());
-
+            // mongo db
+             
+             string connectionUri = builder.Configuration.GetConnectionString("MongoDb")!;
+            var settings = MongoClientSettings.FromConnectionString(connectionUri);
+            // Set the ServerApi field of the settings object to set the version of the Stable API on the client
+            settings.ServerApi = new ServerApi(ServerApiVersion.V1);
+            // Create a new client and connect to the server
+            var client = new MongoClient(settings);
+            // Send a ping to confirm a successful connection
+            try {
+                var result = client.GetDatabase("admin").RunCommand<BsonDocument>(new BsonDocument("ping", 1));
+                Console.WriteLine("Pinged your deployment. You successfully connected to MongoDB!");
+            }
+            catch (Exception ex) {
+                Console.WriteLine(ex);
+            }
+            //
 
             Console.WriteLine(" connect");
             // Add services to the container.
