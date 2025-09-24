@@ -7,6 +7,7 @@ namespace Smart_Roots_Server.Infrastructure.Models {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
         public string? Id { get; set; }
+        [BsonElement("MacAddress")]
         public string MacAddress { get; set; } // this is where the data will be coming from
 
         [BsonElement("Temperature")]
