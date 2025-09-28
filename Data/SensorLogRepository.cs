@@ -16,19 +16,25 @@ namespace Smart_Roots_Server.Data
         public SensorLogRepository(IMongoClient client, IConfiguration cfg, ILogger<SensorLogRepository> logger)
         {
             _logger = logger;
-            var db = client.GetDatabase(cfg.GetValue<string>("Mongo:Database") ?? "SmartRoots");
-            _col = db.GetCollection<SensorLogs>(cfg.GetValue<string>("Mongo:SensorLogsCollection") ?? "sensor_logs");
 
+            var dbName = cfg.GetValue<string>("Mongo:Database") ?? "SmartRoots";
+            var colName = cfg.GetValue<string>("Mongo:SensorLogsCollection") ?? "sensor_logs";
+
+            var db = client.GetDatabase(dbName);
+            _col = db.GetCollection<SensorLogs>(colName);
+
+            // Helpful index; never block startup if Mongo is unreachable.
             try
             {
                 var keys = Builders<SensorLogs>.IndexKeys
                     .Ascending(x => x.MacAddress)
                     .Descending(x => x.Created_At);
+
                 _col.Indexes.CreateOne(new CreateIndexModel<SensorLogs>(keys));
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Skipping Mongo index creation (Mongo not reachable right now).");
+                _logger.LogWarning(ex, "Skipping Mongo index creation (Mongo not reachable).");
             }
         }
 
