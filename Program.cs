@@ -1,125 +1,118 @@
-
-namespace Smart_Roots_Server {
+namespace Smart_Roots_Server
+{
     using FluentValidation;
-    using MQTTnet;
+    using MQTTnet;                         // NOTE: only root MQTTnet namespace
+    using MongoDB.Driver;
     using Smart_Roots_Server.Data;
     using Smart_Roots_Server.Exceptions;
-    using Smart_Roots_Server.Infrastructure.Models;
     using Smart_Roots_Server.Infrastructure.Validation;
     using Smart_Roots_Server.Routes;
     using Smart_Roots_Server.Services;
     using System.Net.Sockets;
-    using System.Security.Cryptography.X509Certificates;
-    using System.Text.Json;
-    using System.Threading.Tasks;
-    using MongoDB.Driver;
-    using MongoDB.Bson;
-    public class Program {
-        public static async Task Main(string[] args) {
-            //string certPath = "Certificate.cer";
-            // var certificate = new X509Certificate2(certPath);
-           
+    using Smart_Roots_Server.Infrastructure.Models;
+
+    public class Program
+    {
+        public static async Task Main(string[] args)
+        {
             var builder = WebApplication.CreateBuilder(args);
-           
+
+            // ProblemDetails + global exception handler
             builder.Services.AddProblemDetails(config =>
-            config.CustomizeProblemDetails = context => {
-                context.ProblemDetails.Extensions.TryAdd("requestId", context.HttpContext.TraceIdentifier);
-            });
-            var url = builder.Configuration.GetSection("SUPABASE:URL").Get<string>();
-            var key = builder.Configuration.GetSection("SUPABASE:KEY").Get<string>();
-            var supabaseOptions = new Supabase.SupabaseOptions {
+                config.CustomizeProblemDetails = ctx =>
+                    ctx.ProblemDetails.Extensions.TryAdd("requestId", ctx.HttpContext.TraceIdentifier));
+            builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
+            // --- Supabase (unchanged; assumes keys are provided via user-secrets/appsettings) ---
+            var url = builder.Configuration["SUPABASE:URL"];
+            var key = builder.Configuration["SUPABASE:KEY"];
+            var supabaseOptions = new Supabase.SupabaseOptions
+            {
                 AutoRefreshToken = true,
-
                 AutoConnectRealtime = true,
             };
-            var supabase = new Supabase.Client(url, key, supabaseOptions);
-            builder.Services.AddSingleton(provider => new Supabase.Client(url, key, supabaseOptions));
-            builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
-            string broker = "e902c05a.ala.eu-central-1.emqxsl.com";
-            int port = 8883;
-            //string clientId = Guid.NewGuid().ToString();
-            string topic = "Images";
-            string username = "ShravanRamjathan";
-            string password = "EmwDW3HGRDsg8Je";
-            builder.Services.AddSingleton<MqttSubscriber>();
+            builder.Services.AddSingleton(_ => new Supabase.Client(url, key, supabaseOptions));
             builder.Services.AddSingleton<SupabaseStorageContext>();
-            // Create a MQTT client factory
 
-            // Create MQTT client options
-            builder.Services.AddScoped<IValidator<Image>, ImageValidator>();
-            var options = new MqttClientOptionsBuilder()
-               .WithTcpServer(broker, port) // MQTT broker address and port
-               .WithCredentials(username, password) // Set username and password
+            // --- MongoDB DI ---
+            string connectionUri = builder.Configuration.GetConnectionString("MongoDb")!;
+            var mongoSettings = MongoClientSettings.FromConnectionString(connectionUri);
+            mongoSettings.ServerApi = new ServerApi(ServerApiVersion.V1);
+            mongoSettings.ServerSelectionTimeout = TimeSpan.FromSeconds(3); // fail fast in dev
 
-               .WithCleanSession(true)
-               .WithTlsOptions(
-                   o => {
+            builder.Services.AddSingleton<IMongoClient>(_ => new MongoClient(mongoSettings));
+            builder.Services.AddSingleton<ISensorLogRepository, SensorLogRepository>();
 
-                       o.WithCertificateValidationHandler(_ => true);
-                   }
-               )
+            // --- EMQX settings from config ---
+            var emqxHost = builder.Configuration["Emqx:Host"] ?? "localhost";
+            var emqxPort = builder.Configuration.GetValue("Emqx:Port", 1883);
+            var emqxUser = builder.Configuration["Emqx:Username"];
+            var emqxPass = builder.Configuration["Emqx:Password"];
+            var emqxTopic = builder.Configuration["Emqx:Topic"] ?? "Readings/#";
+            var emqxUseTls = builder.Configuration.GetValue("Emqx:UseTls", true);
 
-               .Build();
-            if (options.ChannelOptions is MqttClientTcpOptions tcpOptions) {
-                tcpOptions.AddressFamily = AddressFamily.InterNetwork;
-            }
+            // MQTT client + subscriber service
             builder.Services.AddSingleton<IMqttClient>(new MqttClientFactory().CreateMqttClient());
-            // mongo db
-             
-             string connectionUri = builder.Configuration.GetConnectionString("MongoDb")!;
-            var settings = MongoClientSettings.FromConnectionString(connectionUri);
-            // Set the ServerApi field of the settings object to set the version of the Stable API on the client
-            settings.ServerApi = new ServerApi(ServerApiVersion.V1);
-            // Create a new client and connect to the server
-            var client = new MongoClient(settings);
-            // Send a ping to confirm a successful connection
-            try {
-                var result = client.GetDatabase("admin").RunCommand<BsonDocument>(new BsonDocument("ping", 1));
-                Console.WriteLine("Pinged your deployment. You successfully connected to MongoDB!");
-            }
-            catch (Exception ex) {
-                Console.WriteLine(ex);
-            }
-            //
-
-            Console.WriteLine(" connect");
-            // Add services to the container.
+            builder.Services.AddSingleton<MqttSubscriber>();
+            builder.Services.AddScoped<IValidator<Image>, ImageValidator>();
+            // API services
             builder.Services.AddAuthorization();
-
-            // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
             var app = builder.Build();
 
-            // Configure the HTTP request pipeline.
-            if (app.Environment.IsDevelopment()) {
+            if (app.Environment.IsDevelopment())
+            {
                 app.UseSwagger();
                 app.UseSwaggerUI();
             }
-            
-            var mqttClient = app.Services.GetRequiredService<IMqttClient>();
-            await mqttClient.ConnectAsync(options);
-            while (!mqttClient.IsConnected) {
-                Console.WriteLine("cant connect");
-                await mqttClient.ReconnectAsync(CancellationToken.None);
-            }
-            var mqttSubscriber = app.Services.GetRequiredService<MqttSubscriber>();
-            await mqttSubscriber.SubscribeAsync(topic);
-            app.UseHttpsRedirection();
 
+            app.UseExceptionHandler();
             app.UseAuthorization();
 
+            // --- Connect MQTT and subscribe once at startup ---
+            var mqttClient = app.Services.GetRequiredService<IMqttClient>();
+
+            var optionsBuilder = new MqttClientOptionsBuilder()
+                .WithTcpServer(emqxHost, emqxPort)
+                .WithCredentials(emqxUser, emqxPass)
+                .WithCleanSession(true);
+
+            if (emqxUseTls)
+            {
+                optionsBuilder.WithTlsOptions(o =>
+                {
+                    // Dev: accept any cert. Replace with proper CA validation later.
+                    o.WithCertificateValidationHandler(_ => true);
+                });
+            }
+
+            var options = optionsBuilder.Build();
+
+            // Some MQTTnet versions expose ChannelOptions without the typed TCP class;
+            // omitting AddressFamily tweak for compatibility with your package.
+
+            await mqttClient.ConnectAsync(options);
+            while (!mqttClient.IsConnected)
+            {
+                Console.WriteLine("MQTT not connected yet; retrying…");
+                await mqttClient.ReconnectAsync(CancellationToken.None);
+            }
+
+            var mqttSubscriber = app.Services.GetRequiredService<MqttSubscriber>();
+            await mqttSubscriber.SubscribeAsync(emqxTopic);
+
+            // Routes
             app.MapGroup("/api/images")
-                .MapImagesApi()
-                .WithTags("Images")
-                .WithDescription("Images from espCam");
+               .MapImagesApi()
+               .WithTags("Images")
+               .WithDescription("Images from espCam");
 
             app.MapGroup("/api/sensors")
-                .MapSensorApis()
-                .WithTags("Sensors")
-                .WithDescription("Data from the sensors");
+               .MapSensorApis()
+               .WithTags("Sensors")
+               .WithDescription("Data from the sensors");
 
             app.Run();
         }
