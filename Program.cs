@@ -9,6 +9,7 @@ namespace Smart_Roots_Server
     using Smart_Roots_Server.Routes;
     using Smart_Roots_Server.Services;
     using System.Net.Sockets;
+    using Smart_Roots_Server.Infrastructure.Models;
 
     public class Program
     {
@@ -53,7 +54,7 @@ namespace Smart_Roots_Server
             // MQTT client + subscriber service
             builder.Services.AddSingleton<IMqttClient>(new MqttClientFactory().CreateMqttClient());
             builder.Services.AddSingleton<MqttSubscriber>();
-
+            builder.Services.AddScoped<IValidator<Image>, ImageValidator>();
             // API services
             builder.Services.AddAuthorization();
             builder.Services.AddEndpointsApiExplorer();
