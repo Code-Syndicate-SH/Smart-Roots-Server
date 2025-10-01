@@ -47,12 +47,12 @@ namespace Smart_Roots_Server.Services
                     {
                         MacAddress = dto.MacAddress ?? "unknown",
                         Temperature = ToInt(dto.Temperature),
-                        Ec = ToInt(dto.Ec),
+                        Ec = ToInt(dto.EC),
                         FlowRate = ToInt(dto.FlowRate),
                         PH = ToInt(dto.PH),
                         Light = ToInt(dto.Light),
                         Humidity = ToInt(dto.Humidity),
-                        Created_At = dto.ts ?? dto.createdAt ?? DateTime.UtcNow
+                       
                     };
 
                     await _repo.InsertAsync(doc, ct);
