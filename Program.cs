@@ -104,6 +104,9 @@ namespace Smart_Roots_Server
 
             var mqttSubscriber = app.Services.GetRequiredService<MqttSubscriber>();
             await mqttSubscriber.SubscribeAsync(emqxTopic);
+            app.MapGet("/", () => {
+                return TypedResults.Ok("Server is up");
+            });
 
             // Routes
             app.MapGroup("/api/images")
