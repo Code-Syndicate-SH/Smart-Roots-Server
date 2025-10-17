@@ -107,7 +107,11 @@ namespace Smart_Roots_Server
             app.MapGet("/", () => {
                 return TypedResults.Ok("Server is up");
             });
-
+            app.MapGet("/health", () => Results.Ok(new {
+                status = "Healthy",
+                environment = app.Environment.EnvironmentName,
+                startedAt = DateTime.UtcNow
+            }));
             // Routes
             app.MapGroup("/api/images")
                .MapImagesApi()
