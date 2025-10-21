@@ -33,7 +33,7 @@ namespace Smart_Roots_Server
             };
             builder.Services.AddSingleton(_ => new Supabase.Client(url, key, supabaseOptions));
             builder.Services.AddSingleton<SupabaseStorageContext>();
-
+            builder.Services.AddSingleton<SupabaseSQLClient>();
             // --- MongoDB DI ---
             string connectionUri = builder.Configuration.GetConnectionString("MongoDb")!;
             var mongoSettings = MongoClientSettings.FromConnectionString(connectionUri);
