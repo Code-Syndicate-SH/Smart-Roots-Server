@@ -35,5 +35,12 @@ namespace Smart_Roots_Server.Controller.cs {
             }
             return TypedResults.Ok(new { ImageLink = url });
         }
+        public static async Task<IResult> GetLatestImageAsync([FromServices] ILogger<ImageMetaData> logger, [FromServices] SupabaseSQLClient supabaseSQLClient,[FromBody] string macaddress) {
+            if (!RegexValidation.IsValidMacAddress(macaddress)) return TypedResults.BadRequest("Invalid tent address.");
+
+            var latestImageData =await supabaseSQLClient.GetLatestImage(macaddress);
+            if (latestImageData == null) return TypedResults.BadRequest("No images to be found for the current system");
+            return TypedResults.Ok(new { Url = latestImageData.PublicURl });
+        }
     }
 }
