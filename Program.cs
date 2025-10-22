@@ -54,6 +54,7 @@ namespace Smart_Roots_Server
             // MQTT client + subscriber service
             builder.Services.AddSingleton<IMqttClient>(new MqttClientFactory().CreateMqttClient());
             builder.Services.AddSingleton<MqttSubscriber>();
+            builder.Services.AddScoped<IValidator<SensorStates>, SensorStateValidator>();
             builder.Services.AddScoped<IValidator<Image>, ImageValidator>();
             // API services
             builder.Services.AddAuthorization();
