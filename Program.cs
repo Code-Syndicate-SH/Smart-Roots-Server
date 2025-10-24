@@ -62,6 +62,11 @@ namespace Smart_Roots_Server
             var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
             builder.WebHost.UseUrls($"http://*:{port}");
 
+            builder.Services.AddHttpClient();
+            builder.Services.AddSingleton<ISupabaseAuthService, SupabaseAuthService>();
+            builder.Services.AddSingleton<ITentRepository, TentRepositorySupabase>();
+
+
             var app = builder.Build();
 
             if (app.Environment.IsDevelopment())
@@ -122,6 +127,18 @@ namespace Smart_Roots_Server
                .MapSensorApis()
                .WithTags("Sensors")
                .WithDescription("Data from the sensors");
+
+            app.MapGroup("/api/auth")
+   .MapAuthApis()
+   .WithTags("Auth")
+   .WithDescription("Supabase authentication (register/login)");
+
+            app.MapGroup("/api/tents")
+               .MapTentApis()
+               .WithTags("Tents")
+               .WithDescription("Public read, protected write for Tent entities");
+
+
 
             app.Run();
         }
