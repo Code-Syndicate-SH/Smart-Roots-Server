@@ -38,7 +38,18 @@ namespace Smart_Roots_Server
             string connectionUri = builder.Configuration.GetConnectionString("MongoDb")!;
             var mongoSettings = MongoClientSettings.FromConnectionString(connectionUri);
             mongoSettings.ServerApi = new ServerApi(ServerApiVersion.V1);
-            mongoSettings.ServerSelectionTimeout = TimeSpan.FromSeconds(3); // fail fast in dev
+            // Explicitly enforce TLS 1.2 (Atlas requires this)
+            mongoSettings.SslSettings = new SslSettings {
+                EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12
+            };
+
+            // Give Atlas a bit more breathing room (especially if on slow network / Raspberry Pi)
+            mongoSettings.ServerSelectionTimeout = TimeSpan.FromSeconds(10);
+            mongoSettings.ConnectTimeout = TimeSpan.FromSeconds(10);
+            mongoSettings.SocketTimeout = TimeSpan.FromSeconds(30);
+
+            // Optional: retry write operations automatically
+            mongoSettings.RetryWrites = true;
 
             builder.Services.AddSingleton<IMongoClient>(_ => new MongoClient(mongoSettings));
             builder.Services.AddSingleton<ISensorLogRepository, SensorLogRepository>();
@@ -54,13 +65,14 @@ namespace Smart_Roots_Server
             // MQTT client + subscriber service
             builder.Services.AddSingleton<IMqttClient>(new MqttClientFactory().CreateMqttClient());
             builder.Services.AddSingleton<MqttSubscriber>();
+            builder.Services.AddScoped<IValidator<SensorStates>, SensorStateValidator>();
             builder.Services.AddScoped<IValidator<Image>, ImageValidator>();
             // API services
             builder.Services.AddAuthorization();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
-            var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
-            builder.WebHost.UseUrls($"http://*:{port}");
+            var port = Environment.GetEnvironmentVariable("PORT");
+           // builder.WebHost.UseUrls($"http://*:{port}");
 
             builder.Services.AddHttpClient();
             builder.Services.AddSingleton<ISupabaseAuthService, SupabaseAuthService>();
@@ -108,7 +120,7 @@ namespace Smart_Roots_Server
             }
 
             var mqttSubscriber = app.Services.GetRequiredService<MqttSubscriber>();
-            await mqttSubscriber.SubscribeAsync(emqxTopic);
+            _ =mqttSubscriber.SubscribeAsync(emqxTopic);
             app.MapGet("/", () => {
                 return TypedResults.Ok("Server is up");
             });
