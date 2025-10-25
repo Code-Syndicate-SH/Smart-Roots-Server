@@ -38,33 +38,76 @@ namespace Smart_Roots_Server.Services
 
                 try
                 {
-                    var dto = JsonSerializer.Deserialize<SensorReadingDto>(
-                        payloadJson,
-                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
-                    ) ?? new();
 
-                    var doc = new SensorLogs
-                    {
-                        MacAddress = dto.MacAddress ?? "unknown",
-                        Temperature = ToInt(dto.Temperature),
-                        Ec = ToInt(dto.EC),
-                        FlowRate = ToInt(dto.FlowRate),
-                        PH = ToInt(dto.PH),
-                        Light = ToInt(dto.Light),
-                        Humidity = ToInt(dto.Humidity),
-                       
-                    };
+                    var log = ParseSafely(payloadJson);
 
-                    await _repo.InsertAsync(doc, ct);
+                    await _repo.InsertAsync(log, ct);
                 }
                 catch (Exception ex)
                 {
-                    // Log and continue; user-facing streams must not be affected
+                    
                     _logger.LogError(ex, "Failed to persist sensor reading. Payload: {Payload}", payloadJson);
                 }
             };
         }
+        private SensorLogs ParseSafely(string json) {
+            var log = new SensorLogs();
 
-        private static int ToInt(double? v) => v.HasValue ? (int)Math.Round(v.Value) : 0;
+            try {
+                using var doc = JsonDocument.Parse(json);
+                var root = doc.RootElement;
+
+                log.MacAddress = root.GetStringSafe("MacAddress", "unknown");
+                log.Temperature = root.GetDoubleSafe("Temperature");
+                log.Ec = root.GetDoubleSafe("EC");
+                log.FlowRate = root.GetDoubleSafe("FlowRate");
+                log.PH = root.GetDoubleSafe("PH");
+                log.Light = root.GetDoubleSafe("Light");
+                log.Humidity = root.GetDoubleSafe("Humidity");
+            }
+            catch (Exception ex) {
+                _logger.LogWarning(ex, "Malformed JSON payload, using defaults where missing");
+            }
+
+            return log;
+        }
+    }
+
+    // --- Safe parsing helpers for double + string ---
+    internal static class JsonSafeExtensions {
+        public static string GetStringSafe(this JsonElement root, string name, string fallback) {
+            if (root.TryGetProperty(name, out var prop)) {
+                try {
+                    return prop.GetString() ?? fallback;
+                }
+                catch { }
+            }
+            return fallback;
+        }
+
+        public static double GetDoubleSafe(this JsonElement root, string name) {
+            if (root.TryGetProperty(name, out var prop)) {
+                try {
+                    switch (prop.ValueKind) {
+                        case JsonValueKind.Number:
+                            if (prop.TryGetDouble(out var num))
+                                return num;
+
+                            break;
+                        case JsonValueKind.String:
+                            var s = prop.GetString()?.Replace(":", "").Trim();
+                            if (double.TryParse(s, System.Globalization.NumberStyles.Any,
+                                System.Globalization.CultureInfo.InvariantCulture, out var val))
+                                return val;
+                            break;
+                    }
+                }
+                catch { }
+            }
+            return 0.0; // fallback for missing or malformed fields
+        }
+
+
+
     }
 }
