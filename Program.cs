@@ -79,6 +79,8 @@ namespace Smart_Roots_Server
             builder.Services.AddScoped<IValidator<RegisterRequest>, RegisterRequestValidator>();
             builder.Services.AddScoped<IValidator<LoginRequest>, LoginRequestValidator>();
             builder.Services.AddScoped<IValidator<TentUpsertDto>, TentUpsertDtoValidator>();
+            builder.Services.AddScoped<IValidator<TentCreateDto>, TentCreateDtoValidator>();
+
 
             builder.Services.AddHttpClient();
             builder.Services.AddSingleton<ISupabaseAuthService, SupabaseAuthService>();
