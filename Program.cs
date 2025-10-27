@@ -1,15 +1,16 @@
 namespace Smart_Roots_Server
 {
     using FluentValidation;
-    using MQTTnet;                         // NOTE: only root MQTTnet namespace
     using MongoDB.Driver;
+    using MQTTnet;                         // NOTE: only root MQTTnet namespace
     using Smart_Roots_Server.Data;
     using Smart_Roots_Server.Exceptions;
+    using Smart_Roots_Server.Infrastructure.Dtos;
+    using Smart_Roots_Server.Infrastructure.Models;
     using Smart_Roots_Server.Infrastructure.Validation;
     using Smart_Roots_Server.Routes;
     using Smart_Roots_Server.Services;
     using System.Net.Sockets;
-    using Smart_Roots_Server.Infrastructure.Models;
 
     public class Program
     {
@@ -72,7 +73,19 @@ namespace Smart_Roots_Server
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
             var port = Environment.GetEnvironmentVariable("PORT");
-           // builder.WebHost.UseUrls($"http://*:{port}");
+            // builder.WebHost.UseUrls($"http://*:{port}");
+
+            // validators
+            builder.Services.AddScoped<IValidator<RegisterRequest>, RegisterRequestValidator>();
+            builder.Services.AddScoped<IValidator<LoginRequest>, LoginRequestValidator>();
+            builder.Services.AddScoped<IValidator<TentUpsertDto>, TentUpsertDtoValidator>();
+            builder.Services.AddScoped<IValidator<TentCreateDto>, TentCreateDtoValidator>();
+
+
+            builder.Services.AddHttpClient();
+            builder.Services.AddSingleton<ISupabaseAuthService, SupabaseAuthService>();
+            builder.Services.AddSingleton<ITentRepository, TentRepositorySupabase>();
+
 
             var app = builder.Build();
 
@@ -134,6 +147,18 @@ namespace Smart_Roots_Server
                .MapSensorApis()
                .WithTags("Sensors")
                .WithDescription("Data from the sensors");
+
+            app.MapGroup("/api/auth")
+   .MapAuthApis()
+   .WithTags("Auth")
+   .WithDescription("Supabase authentication (register/login)");
+
+            app.MapGroup("/api/tents")
+               .MapTentApis()
+               .WithTags("Tents")
+               .WithDescription("Public read, protected write for Tent entities");
+
+
 
             app.Run();
         }
