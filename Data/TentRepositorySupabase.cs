@@ -70,7 +70,13 @@ namespace Smart_Roots_Server.Data
         {
             MacAddress = e.GetProperty("mac_address").GetString()!,
             Name = e.TryGetProperty("name", out var n) ? n.GetString() : null,
-            Location = e.TryGetProperty("location", out var l) ? l.GetString() : null
+            Location = e.TryGetProperty("location", out var l) ? l.GetString() : null,
+            Country = e.TryGetProperty("country", out var c)? c.GetString():null,
+            OrganizationName = e.TryGetProperty("organization_name", out var o)? o.GetString() : null,
+            TentType = e.TryGetProperty("tent_type", out var t)? t.GetString() : null
+
+
+
         };
 
         // =========================================================
@@ -79,7 +85,7 @@ namespace Smart_Roots_Server.Data
         public async Task<IEnumerable<TentPublicDto>> GetAllPublicAsync(CancellationToken ct)
         {
             var c = DbClient(); // anon ok
-            var res = await c.GetAsync("tents?select=mac_address,name,location", ct);
+            var res = await c.GetAsync("tents?select=mac_address,name,location,tent_type,country,organization_name", ct);
             res.EnsureSuccessStatusCode();
             var txt = await res.Content.ReadAsStringAsync(ct);
             using var doc = JsonDocument.Parse(txt);
@@ -120,7 +126,7 @@ namespace Smart_Roots_Server.Data
                 Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
             };
             req.Headers.Add("Prefer", "return=minimal");
-
+            
             var res = await c.SendAsync(req, ct);
             if (res.IsSuccessStatusCode) return true;
             if ((int)res.StatusCode == 409) return false; // duplicate mac
