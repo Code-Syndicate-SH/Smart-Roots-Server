@@ -58,7 +58,7 @@ namespace Smart_Roots_Server.Controller.cs {
             return TypedResults.Ok();
         }
 
-        public static async Task GetReadingWithMacAddress(HttpContext httpContext, IMqttClient mqttClient,[FromBody] string macAddress, ILogger<SensorLogs> logger) {
+        public static async Task GetReadingWithMacAddress(HttpContext httpContext, IMqttClient mqttClient, string macAddress, ILogger<SensorLogs> logger) {
             if (mqttClient == null || !mqttClient.IsConnected) {
                 httpContext.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
                 await httpContext.Response.WriteAsync("MQTT client is not connected.");
