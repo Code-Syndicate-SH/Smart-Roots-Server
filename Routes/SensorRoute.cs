@@ -6,6 +6,7 @@ namespace Smart_Roots_Server.Routes {
             
             group.MapGet("/", SensorController.GetReadings);
             group.MapPut("/toggle/{id}", SensorController.ToggleComponent);
+            group.MapGet("/{macAddress}", SensorController.GetReadingWithMacAddress);
             return group;
         }
     }

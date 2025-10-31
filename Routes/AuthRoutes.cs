@@ -119,8 +119,8 @@ namespace Smart_Roots_Server.Routes
 
         private static void ClearAuthCookies(HttpContext ctx, IConfiguration cfg)
         {
-            var accessCookieName = cfg["AUTH:AccessCookieName"] ?? "sb:access_token";
-            var refreshCookieName = cfg["AUTH:RefreshCookieName"] ?? "sb:refresh_token";
+            var accessCookieName = cfg["AUTH:AccessCookieName"] ?? "sb-access-token";
+            var refreshCookieName = cfg["AUTH:RefreshCookieName"] ?? "sb-refresh-token";
 
             var secure = cfg.GetValue("AUTH:SecureCookies", true);
             var sameSite = ParseSameSite(cfg["AUTH:SameSite"] ?? "None");
@@ -149,7 +149,7 @@ namespace Smart_Roots_Server.Routes
             if (!string.IsNullOrWhiteSpace(authz) && authz.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
                 return authz["Bearer ".Length..].Trim();
 
-            var cookieName = cfg["AUTH:AccessCookieName"] ?? "sb:access_token";
+            var cookieName = cfg["AUTH:AccessCookieName"] ?? "sb-access-token";
             return ctx.Request.Cookies.TryGetValue(cookieName, out var token) ? token : null;
         }
 
