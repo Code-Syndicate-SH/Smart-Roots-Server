@@ -80,8 +80,8 @@ namespace Smart_Roots_Server.Routes
 
         private static void SetAuthCookies(HttpContext ctx, IConfiguration cfg, string accessToken, string refreshToken)
         {
-            var accessCookieName = cfg["AUTH:AccessCookieName"] ?? "sb:access_token";
-            var refreshCookieName = cfg["AUTH:RefreshCookieName"] ?? "sb:refresh_token";
+            var accessCookieName = cfg["AUTH:AccessCookieName"] ?? "sb-access-token";
+            var refreshCookieName = cfg["AUTH:RefreshCookieName"] ?? "sb-refresh-token";
 
             var secure = cfg.GetValue("AUTH:SecureCookies", true);
             var sameSite = ParseSameSite(cfg["AUTH:SameSite"] ?? "None");
