@@ -1,9 +1,12 @@
 ﻿using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using MQTTnet;
+using Smart_Roots_Server.Infrastructure.Dtos;
 using Smart_Roots_Server.Infrastructure.Models;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Smart_Roots_Server.Controller.cs {
     public static class SensorController {
@@ -63,6 +66,7 @@ namespace Smart_Roots_Server.Controller.cs {
                 httpContext.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
                 await httpContext.Response.WriteAsync("MQTT client is not connected.");
                 return;
+
             }
 
             // IMPORTANT: do not subscribe here (subscription happens at startup)
@@ -75,8 +79,16 @@ namespace Smart_Roots_Server.Controller.cs {
 
             Func<MqttApplicationMessageReceivedEventArgs, Task> handler = async e => {
                 var payloadJson = Encoding.UTF8.GetString(e.ApplicationMessage.Payload);
-                SensorLogs log = JsonSerializer.Deserialize<SensorLogs>(payloadJson)?? new();
+                payloadJson = payloadJson.Trim();
+                
+                var options = new JsonSerializerOptions {
+                    NumberHandling = JsonNumberHandling.AllowReadingFromString
+                };
+
+                SensorReadingDto log =  JsonSerializer.Deserialize<SensorReadingDto>(payloadJson,options) ?? new();
                 try {
+                   
+               
                     if (log != null && log.MacAddress ==macAddress) {
                         await httpContext.Response.WriteAsync($"data: {payloadJson}\n\n", cts.Token);
                         await httpContext.Response.Body.FlushAsync(cts.Token);
@@ -85,12 +97,19 @@ namespace Smart_Roots_Server.Controller.cs {
                 catch (OperationCanceledException) {
                     logger.LogInformation("Client disconnected");
                 }
+                catch (Exception exception) {
+                    logger.LogError("There was an error", exception);
+                }
             };
 
             mqttClient.ApplicationMessageReceivedAsync += handler;
 
-            try { await Task.Delay(Timeout.Infinite, cts.Token); }
-            catch (OperationCanceledException) { }
+            try { 
+                await Task.Delay(Timeout.Infinite, cts.Token); 
+            }
+            catch (OperationCanceledException exception) {
+                logger.LogInformation("Canceled", exception);
+            }
             finally { mqttClient.ApplicationMessageReceivedAsync -= handler; }
         }
     }
