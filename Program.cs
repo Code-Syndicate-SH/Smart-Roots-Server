@@ -1,7 +1,7 @@
 namespace Smart_Roots_Server {
     using FluentValidation;
     using MongoDB.Driver;
-    using MQTTnet;                         // NOTE: only root MQTTnet namespace
+    using MQTTnet;                         
     using Smart_Roots_Server.Data;
     using Smart_Roots_Server.Exceptions;
     using Smart_Roots_Server.Infrastructure.Dtos;
@@ -23,13 +23,13 @@ namespace Smart_Roots_Server {
             builder.Services.AddCors(options => {
                 options.AddPolicy(name: MyAllowSpecificOrigins,
                                   policy => {
-                                     policy.WithOrigins("http://localhost:5173")
+                                     policy.WithOrigins("https://smart-roots-web.vercel.app/")
                                       .AllowAnyHeader()
                                       .AllowAnyMethod()
                                       .AllowCredentials();
                                   });
             });
-            // --- Supabase (unchanged; assumes keys are provided via user-secrets/appsettings) ---
+           
             var url = builder.Configuration["SUPABASE:URL"];
             var key = builder.Configuration["SUPABASE:KEY"];
             var supabaseOptions = new Supabase.SupabaseOptions {
@@ -43,7 +43,7 @@ namespace Smart_Roots_Server {
             string connectionUri = builder.Configuration.GetConnectionString("MongoDb")!;
             var mongoSettings = MongoClientSettings.FromConnectionString(connectionUri);
             mongoSettings.ServerApi = new ServerApi(ServerApiVersion.V1);
-            // Explicitly enforce TLS 1.2 (Atlas requires this)
+     
             mongoSettings.SslSettings = new SslSettings {
                 EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12
             };
