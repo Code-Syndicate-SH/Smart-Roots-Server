@@ -5,30 +5,26 @@ using Microsoft.AspNetCore.Mvc;
 using Smart_Roots_Server.Infrastructure.Dtos;
 using Smart_Roots_Server.Services;
 
-namespace Smart_Roots_Server.Routes
-{
-    public static class AuthRoutes
-    {
-        public static RouteGroupBuilder MapAuthApis(this RouteGroupBuilder group)
-        {
+namespace Smart_Roots_Server.Routes {
+    public static class AuthRoutes {
+        public static RouteGroupBuilder MapAuthApis(this RouteGroupBuilder group) {
             // ------------------- REGISTER -------------------
             group.MapPost("/register", async (
                 [FromBody] RegisterRequest req,
                 IValidator<RegisterRequest> validator,
                 ISupabaseAuthService auth,
-                CancellationToken ct) =>
-            {
-                var v = await validator.ValidateAsync(req, ct);
-                if (!v.IsValid)
-                    return Results.Json(new { errors = v.Errors.Select(e => e.ErrorMessage) }, statusCode: StatusCodes.Status400BadRequest);
+                CancellationToken ct) => {
+                    var v = await validator.ValidateAsync(req, ct);
+                    if (!v.IsValid)
+                        return Results.Json(new { errors = v.Errors.Select(e => e.ErrorMessage) }, statusCode: StatusCodes.Status400BadRequest);
 
-                var (ok, status, msg) = await auth.RegisterAsync(req.Email.Trim(), req.Password, req.Role?.Trim(), ct);
-                if (!ok)
-                    return Results.Json(new { error = msg ?? "Registration failed." }, statusCode: status);
+                    var (ok, status, msg) = await auth.RegisterAsync(req.Email.Trim(), req.Password, req.Role?.Trim(), ct);
+                    if (!ok)
+                        return Results.Json(new { error = msg ?? "Registration failed." }, statusCode: status);
 
-                // 201 Created on success (per manager request)
-                return Results.StatusCode(StatusCodes.Status201Created);
-            });
+                    // 201 Created on success (per manager request)
+                    return Results.StatusCode(StatusCodes.Status201Created);
+                });
 
             // ------------------- LOGIN (HttpOnly cookies) -------------------
             group.MapPost("/login", async (
@@ -37,25 +33,23 @@ namespace Smart_Roots_Server.Routes
                 ISupabaseAuthService auth,
                 HttpContext ctx,
                 IConfiguration cfg,
-                CancellationToken ct) =>
-            {
-                var v = await validator.ValidateAsync(req, ct);
-                if (!v.IsValid)
-                    return Results.Json(new { errors = v.Errors.Select(e => e.ErrorMessage) }, statusCode: StatusCodes.Status400BadRequest);
+                CancellationToken ct) => {
+                    var v = await validator.ValidateAsync(req, ct);
+                    if (!v.IsValid)
+                        return Results.Json(new { errors = v.Errors.Select(e => e.ErrorMessage) }, statusCode: StatusCodes.Status400BadRequest);
 
-                var (ok, status, at, rt, role, msg) = await auth.LoginAsync(req.Email.Trim(), req.Password, ct);
-                if (!ok)
-                    return Results.Json(new { error = msg ?? "Unauthorized" }, statusCode: status);
+                    var (ok, status, at, rt, role, msg) = await auth.LoginAsync(req.Email.Trim(), req.Password, ct);
+                    if (!ok)
+                        return Results.Json(new { error = msg ?? "Unauthorized" }, statusCode: status);
 
-                SetAuthCookies(ctx, cfg, at!, rt!);
+                    SetAuthCookies(ctx, cfg, at!, rt!);
 
-                // Return ONLY role (no tokens in body)
-                return Results.Ok(new { role });
-            });
+                    // Return ONLY role (no tokens in body)
+                    return Results.Ok(new { role });
+                });
 
             // ------------------- WHO AM I (reads header OR cookie) -------------------
-            group.MapGet("/me", async (HttpContext ctx, ISupabaseAuthService auth, IConfiguration cfg, CancellationToken ct) =>
-            {
+            group.MapGet("/me", async (HttpContext ctx, ISupabaseAuthService auth, IConfiguration cfg, CancellationToken ct) => {
                 var token = ReadAccessToken(ctx, cfg);
                 if (string.IsNullOrWhiteSpace(token))
                     return Results.Json(new { error = "Missing token" }, statusCode: StatusCodes.Status401Unauthorized);
@@ -65,10 +59,29 @@ namespace Smart_Roots_Server.Routes
                     ? Results.Ok(new { role })
                     : Results.Json(new { error = msg ?? "Unauthorized" }, statusCode: status);
             });
+            group.MapGet("/refresh", async (
+    HttpContext ctx,
+    ISupabaseAuthService auth,
+    IConfiguration cfg,
+    CancellationToken ct) => {
+        
+        var refreshCookieName = cfg["AUTH:RefreshCookieName"] ?? "sb-refresh-token";
+        if (!ctx.Request.Cookies.TryGetValue(refreshCookieName, out var refreshToken) || string.IsNullOrWhiteSpace(refreshToken))
+            return Results.Json(new { error = "Missing refresh token" }, statusCode: StatusCodes.Status401Unauthorized);
 
+        var (ok, status, newAccessToken, newRefreshToken, role, msg) = await auth.RefreshAsync(refreshToken!, ct);
+        if (!ok || string.IsNullOrWhiteSpace(newAccessToken))
+            return Results.Json(new { error = msg ?? "Failed to refresh token" }, statusCode: status);
+
+        SetAuthCookies(ctx, cfg, newAccessToken!, newRefreshToken ?? refreshToken);
+
+        ctx.Response.Headers["Authorization"] = $"Bearer {newAccessToken}";
+
+        
+        return Results.NoContent();
+    });
             // ------------------- LOGOUT (clear cookies) -------------------
-            group.MapPost("/logout", (HttpContext ctx, IConfiguration cfg) =>
-            {
+            group.MapPost("/logout", (HttpContext ctx, IConfiguration cfg) => {
                 ClearAuthCookies(ctx, cfg);
                 return Results.NoContent();
             });
@@ -78,8 +91,7 @@ namespace Smart_Roots_Server.Routes
 
         // ===================== Helpers =====================
 
-        private static void SetAuthCookies(HttpContext ctx, IConfiguration cfg, string accessToken, string refreshToken)
-        {
+        private static void SetAuthCookies(HttpContext ctx, IConfiguration cfg, string accessToken, string refreshToken) {
             var accessCookieName = cfg["AUTH:AccessCookieName"] ?? "sb-access-token";
             var refreshCookieName = cfg["AUTH:RefreshCookieName"] ?? "sb-refresh-token";
 
@@ -90,16 +102,14 @@ namespace Smart_Roots_Server.Routes
             var accessExp = ExpFromJwt(accessToken) ?? DateTimeOffset.UtcNow.AddMinutes(15);
             var refreshExp = DateTimeOffset.UtcNow.AddDays(7);
 
-            var accessOpts = new CookieOptions
-            {
+            var accessOpts = new CookieOptions {
                 HttpOnly = true,
                 Secure = secure,
                 SameSite = sameSite,
                 Path = "/",
                 Expires = accessExp
             };
-            var refreshOpts = new CookieOptions
-            {
+            var refreshOpts = new CookieOptions {
                 HttpOnly = true,
                 Secure = secure,
                 SameSite = sameSite,
@@ -107,8 +117,7 @@ namespace Smart_Roots_Server.Routes
                 Expires = refreshExp
             };
 
-            if (!string.IsNullOrWhiteSpace(domain))
-            {
+            if (!string.IsNullOrWhiteSpace(domain)) {
                 accessOpts.Domain = domain;
                 refreshOpts.Domain = domain;
             }
@@ -117,8 +126,7 @@ namespace Smart_Roots_Server.Routes
             ctx.Response.Cookies.Append(refreshCookieName, refreshToken, refreshOpts);
         }
 
-        private static void ClearAuthCookies(HttpContext ctx, IConfiguration cfg)
-        {
+        private static void ClearAuthCookies(HttpContext ctx, IConfiguration cfg) {
             var accessCookieName = cfg["AUTH:AccessCookieName"] ?? "sb-access-token";
             var refreshCookieName = cfg["AUTH:RefreshCookieName"] ?? "sb-refresh-token";
 
@@ -126,8 +134,7 @@ namespace Smart_Roots_Server.Routes
             var sameSite = ParseSameSite(cfg["AUTH:SameSite"] ?? "None");
             var domain = cfg["AUTH:CookieDomain"];
 
-            var expiredOpts = new CookieOptions
-            {
+            var expiredOpts = new CookieOptions {
                 Expires = DateTimeOffset.UnixEpoch,
                 HttpOnly = true,
                 Secure = secure,
@@ -142,8 +149,7 @@ namespace Smart_Roots_Server.Routes
         }
 
 
-        private static string? ReadAccessToken(HttpContext ctx, IConfiguration cfg)
-        {
+        private static string? ReadAccessToken(HttpContext ctx, IConfiguration cfg) {
             // Prefer Authorization header; fallback to cookie
             var authz = ctx.Request.Headers.Authorization.ToString();
             if (!string.IsNullOrWhiteSpace(authz) && authz.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
@@ -158,11 +164,9 @@ namespace Smart_Roots_Server.Routes
             v.Equals("lax", StringComparison.OrdinalIgnoreCase) ? SameSiteMode.Lax :
             v.Equals("strict", StringComparison.OrdinalIgnoreCase) ? SameSiteMode.Strict : SameSiteMode.None;
 
-        private static DateTimeOffset? ExpFromJwt(string? jwt)
-        {
+        private static DateTimeOffset? ExpFromJwt(string? jwt) {
             if (string.IsNullOrWhiteSpace(jwt)) return null;
-            try
-            {
+            try {
                 var parts = jwt.Split('.');
                 if (parts.Length < 2) return null;
                 var payload = parts[1].Replace('-', '+').Replace('_', '/');

@@ -1,5 +1,4 @@
-namespace Smart_Roots_Server
-{
+namespace Smart_Roots_Server {
     using FluentValidation;
     using MongoDB.Driver;
     using MQTTnet;                         // NOTE: only root MQTTnet namespace
@@ -12,23 +11,28 @@ namespace Smart_Roots_Server
     using Smart_Roots_Server.Services;
     using System.Net.Sockets;
 
-    public class Program
-    {
-        public static async Task Main(string[] args)
-        {
+    public class Program {
+        public static async Task Main(string[] args) {
             var builder = WebApplication.CreateBuilder(args);
-
+            var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
             // ProblemDetails + global exception handler
             builder.Services.AddProblemDetails(config =>
                 config.CustomizeProblemDetails = ctx =>
                     ctx.ProblemDetails.Extensions.TryAdd("requestId", ctx.HttpContext.TraceIdentifier));
             builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
-
+            builder.Services.AddCors(options => {
+                options.AddPolicy(name: MyAllowSpecificOrigins,
+                                  policy => {
+                                     policy.WithOrigins("http://localhost:5173")
+                                      .AllowAnyHeader()
+                                      .AllowAnyMethod()
+                                      .AllowCredentials();
+                                  });
+            });
             // --- Supabase (unchanged; assumes keys are provided via user-secrets/appsettings) ---
             var url = builder.Configuration["SUPABASE:URL"];
             var key = builder.Configuration["SUPABASE:KEY"];
-            var supabaseOptions = new Supabase.SupabaseOptions
-            {
+            var supabaseOptions = new Supabase.SupabaseOptions {
                 AutoRefreshToken = true,
                 AutoConnectRealtime = true,
             };
@@ -89,12 +93,11 @@ namespace Smart_Roots_Server
 
             var app = builder.Build();
 
-            if (app.Environment.IsDevelopment())
-            {
+            if (app.Environment.IsDevelopment()) {
                 app.UseSwagger();
                 app.UseSwaggerUI();
             }
-
+            app.UseCors(MyAllowSpecificOrigins);
             app.UseExceptionHandler();
             app.UseAuthorization();
 
@@ -106,10 +109,8 @@ namespace Smart_Roots_Server
                 .WithCredentials(emqxUser, emqxPass)
                 .WithCleanSession(true);
 
-            if (emqxUseTls)
-            {
-                optionsBuilder.WithTlsOptions(o =>
-                {
+            if (emqxUseTls) {
+                optionsBuilder.WithTlsOptions(o => {
                     // Dev: accept any cert. Replace with proper CA validation later.
                     o.WithCertificateValidationHandler(_ => true);
                 });
@@ -121,14 +122,13 @@ namespace Smart_Roots_Server
             // omitting AddressFamily tweak for compatibility with your package.
 
             await mqttClient.ConnectAsync(options);
-            while (!mqttClient.IsConnected)
-            {
+            while (!mqttClient.IsConnected) {
                 Console.WriteLine("MQTT not connected yet; retrying…");
                 await mqttClient.ReconnectAsync(CancellationToken.None);
             }
 
             var mqttSubscriber = app.Services.GetRequiredService<MqttSubscriber>();
-            _ =mqttSubscriber.SubscribeAsync(emqxTopic);
+            _ = mqttSubscriber.SubscribeAsync(emqxTopic);
             app.MapGet("/", () => {
                 return TypedResults.Ok("Server is up");
             });
