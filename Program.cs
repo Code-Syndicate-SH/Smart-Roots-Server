@@ -23,7 +23,7 @@ namespace Smart_Roots_Server {
             builder.Services.AddCors(options => {
                 options.AddPolicy(name: MyAllowSpecificOrigins,
                                   policy => {
-                                     policy.WithOrigins("https://smart-roots-web.vercel.app/")
+                                     policy.WithOrigins("https://smart-roots-web.vercel.app")
                                       .AllowAnyHeader()
                                       .AllowAnyMethod()
                                       .AllowCredentials();
